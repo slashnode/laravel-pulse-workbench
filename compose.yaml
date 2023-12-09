@@ -1,0 +1,66 @@
+services:
+  app:
+    container_name: laravel-pulse-workbench.app
+    build:
+      context: ./docker/app
+      dockerfile: Dockerfile
+    working_dir: /var/www/html
+    volumes:
+      - "./:/var/www/html:delegated"
+    depends_on:
+      - mysql
+      - redis
+    networks:
+      - laravel-pulse-workbench
+  web:
+    container_name: laravel-pulse-workbench.web
+    build:
+      context: ./docker/web
+      dockerfile: Dockerfile
+    working_dir: /var/www/html
+    volumes:
+      - "./:/var/www/html:delegated"
+    ports:
+      - "80:80"
+    networks:
+      - laravel-pulse-workbench
+    depends_on:
+      - app
+  mysql:
+    image: 'mysql/mysql-server:8.0'
+    ports:
+      - '${FORWARD_DB_PORT:-3306}:3306'
+    environment:
+      MYSQL_ROOT_PASSWORD: '${DB_PASSWORD}'
+      MYSQL_ROOT_HOST: "%"
+      MYSQL_DATABASE: '${DB_DATABASE}'
+      MYSQL_USER: '${DB_USERNAME}'
+      MYSQL_PASSWORD: '${DB_PASSWORD}'
+      MYSQL_ALLOW_EMPTY_PASSWORD: 1
+    volumes:
+      - 'mysqldata:/var/lib/mysql'
+      - './docker/db/create-database.sh:/docker-entrypoint-initdb.d/10-create-testing-database.sh'
+    networks:
+      - laravel-pulse-workbench
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-p${DB_PASSWORD}"]
+      retries: 3
+      timeout: 5s
+  redis:
+    container_name: laravel-pulse-workbench.redis
+    image: redis:alpine
+    volumes:
+      - redisdata:/data:delegated
+    ports:
+      - "63790:6379"
+    networks:
+      - laravel-pulse-workbench
+
+networks:
+  laravel-pulse-workbench:
+    driver: "bridge"
+volumes:
+  mysqldata:
+    driver: "local"
+  redisdata:
+    driver: "local"
